@@ -1,0 +1,8 @@
+/Project/*.vsconfig
+/Project/*.csproj
+/Project/*.sln
+/Project/.vs
+/Project/Logs
+/Project/obj
+/Project/Temp
+/Project/Library
