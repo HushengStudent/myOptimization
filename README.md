@@ -1,7 +1,7 @@
 ### myOptimization
 #### 性能优化
 
-software：Unity 2020.3.25f1c1/Visual Studio 2017.
+software：2020.2.7f1/Visual Studio 2017.
 
 #### 资源：
     >> Mesh.(Finish)
