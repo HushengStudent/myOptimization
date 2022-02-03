@@ -31,8 +31,8 @@ public class ModelImporterHelper
         AssetDatabase.Refresh();
 
         var model = Object.Instantiate(asset);
-        var skinnedMeshRenderer = model.GetComponentInChildren<SkinnedMeshRenderer>();
-        if (!skinnedMeshRenderer)
+        var skinnedMeshRenderers = model.GetComponentsInChildren<SkinnedMeshRenderer>();
+        if (skinnedMeshRenderers == null || skinnedMeshRenderers.Length < 1)
         {
             return;
         }
@@ -46,19 +46,30 @@ public class ModelImporterHelper
         }
         Directory.CreateDirectory(path);
 
-        var mesh = Object.Instantiate(skinnedMeshRenderer.sharedMesh);
-        mesh.colors = null;
-        mesh.tangents = null;
-        //mesh.normals = null;
-        mesh.uv3 = null;
-        mesh.uv4 = null;
+        foreach (var smr in skinnedMeshRenderers)
+        {
+            var mesh = Object.Instantiate(smr.sharedMesh);
+            mesh.colors = null;
+            //mesh.tangents = null;
+            //mesh.normals = null;
+            mesh.uv3 = null;
+            mesh.uv4 = null;
 
-        var meshPath = $"{path}/{name}.asset";
-        AssetDatabase.CreateAsset(mesh, meshPath);
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
+            var meshName = smr.name;
+            var meshPath = $"{path}/{meshName}.asset";
+            var index = 0;
+            while (File.Exists(meshPath))
+            {
+                index++;
+                meshPath = $"{path}/{meshName}_{index}.asset";
+            }
+            AssetDatabase.CreateAsset(mesh, meshPath);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
 
-        skinnedMeshRenderer.sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
+            smr.sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
+        }
+
         PrefabUtility.SaveAsPrefabAsset(model, $"{path}/{name}.prefab");
         Object.DestroyImmediate(model);
     }
