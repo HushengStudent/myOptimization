@@ -1,3 +1,9 @@
+/********************************************************************************
+** auth:  https://github.com/HushengStudent
+** date:  2022/02/05 01:51:30
+** desc:  Mesh/Animator/AnimationClip
+*********************************************************************************/
+
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -25,8 +31,8 @@ public class ModelImporterHelper
         var assetPath = AssetDatabase.GetAssetPath(asset);
         var importer = AssetImporter.GetAtPath(assetPath) as ModelImporter;
         importer.isReadable = false;
-        importer.optimizeMeshPolygons = true;
-        importer.optimizeMeshVertices = true;
+        importer.meshOptimizationFlags = MeshOptimizationFlags.Everything;
+        importer.optimizeGameObjects = false;
         AssetDatabase.ImportAsset(assetPath);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -44,6 +50,7 @@ public class ModelImporterHelper
         if (Directory.Exists(path))
         {
             Directory.Delete(path, true);
+            AssetDatabase.Refresh();
         }
         Directory.CreateDirectory(path);
 
@@ -129,6 +136,12 @@ public class ModelImporterHelper
         }
 
         var assetPath = AssetDatabase.GetAssetPath(asset);
+        var importer = AssetImporter.GetAtPath(assetPath) as ModelImporter;
+        importer.animationCompression = ModelImporterAnimationCompression.Optimal;
+        AssetDatabase.ImportAsset(assetPath);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
         var animationClip = AssetDatabase.LoadAssetAtPath<AnimationClip>(assetPath);
         if (!animationClip)
         {
@@ -137,16 +150,72 @@ public class ModelImporterHelper
 
         var name = asset.name.Split('@')[0];
         var path = $"{_meshPath}/{name}/Animation";
-
+        /*
         if (Directory.Exists(path))
         {
             Directory.Delete(path, true);
         }
         Directory.CreateDirectory(path);
+        */
+        if (!Directory.Exists(path))
+        {
+            Directory.CreateDirectory(path);
+        }
 
         var animationClipName = animationClip.name;
-        var animationClipPath = $"{path}/{animationClipName}.asset";
+        var animationClipPath = $"{path}/{animationClipName}.anim";
         var newAnimationClip = Object.Instantiate(animationClip);
+
+        if (File.Exists(animationClipPath))
+        {
+            AssetDatabase.DeleteAsset(animationClipPath);
+            AssetDatabase.Refresh();
+        }
+
+        try
+        {
+            //delete scale info
+            foreach (var curveBinding in AnimationUtility.GetCurveBindings(newAnimationClip))
+            {
+                var propertyName = curveBinding.propertyName.ToLower();
+                if (propertyName.Contains("m_localscale"))
+                {
+                    AnimationUtility.SetEditorCurve(newAnimationClip, curveBinding, null);
+                    continue;
+                }
+
+                if (propertyName.Contains("m_localrotation") || propertyName.Contains("m_localposition"))
+                {
+                    //transform float decimal point
+                    var animationCurve = AnimationUtility.GetEditorCurve(newAnimationClip, curveBinding);
+                    if (animationCurve == null || animationCurve.keys == null)
+                    {
+                        continue;
+                    }
+                    var keyFrames = animationCurve.keys;
+                    for (var i = 0; i < keyFrames.Length; i++)
+                    {
+                        var key = keyFrames[i];
+                        key.value = float.Parse(key.value.ToString("f3"));
+                        key.inTangent = float.Parse(key.inTangent.ToString("f3"));
+                        key.outTangent = float.Parse(key.outTangent.ToString("f3"));
+                        keyFrames[i] = key;
+                    }
+                    animationCurve.keys = keyFrames;
+                    AnimationUtility.SetEditorCurve(newAnimationClip, curveBinding, animationCurve);
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Compress animationClip failed,animationPath:{assetPath} error:{e}.");
+        }
+
+        var serializedObject = new SerializedObject(newAnimationClip);
+        serializedObject.FindProperty("m_EditorCurves").arraySize = 0;
+        serializedObject.FindProperty("m_EulerEditorCurves").arraySize = 0;
+        serializedObject.ApplyModifiedProperties();
+
         AssetDatabase.CreateAsset(newAnimationClip, animationClipPath);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
